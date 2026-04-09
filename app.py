@@ -6,7 +6,7 @@ import matplotlib.colors as mat_co
 # Configuración de la página
 st.set_page_config(page_title="Simulador de Dispersión Gaussiana", layout="wide")
 
-st.title("🌬️ Simulador de Dispersión de Contaminantes")
+st.title("🌬️ Simulador de Dispersión de Contaminantes de fuente continua")
 st.markdown("Ajusta los parámetros en la barra lateral para ver cómo se desplaza la pluma contaminante.")
 
 # -------------------------------
