@@ -1,107 +1,119 @@
+
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mat_co
 
-# 1. CONFIGURACIÓN DE PÁGINA (Debe ir arriba de todo)
+# Configuración global
 st.set_page_config(page_title="Simulador de Dispersión", layout="wide")
 
-# --- FUNCIONES DE LOS MODELOS ---
+# Selector de Modelo en la barra lateral
+st.sidebar.title("Navegación")
+modelo_seleccionado = st.sidebar.radio("Selecciona el modelo:", ["Modelo 1: Pluma Estacionaria", "Modelo 2: Dispersión Temporal"])
 
-def modelo_gaussiano_actual():
-    st.title("🌬️ Simulador de Dispersión de Contaminantes")
-    st.markdown("Ajusta los parámetros en la barra lateral.")
-    
-    # --- BARRA LATERAL (INPUTS) ---
-    st.sidebar.header("Configuración de Parámetros")
-    clase_estabilidad = st.sidebar.selectbox('Clase de estabilidad de Pasquill (CL)',['A', 'B', 'C', 'D', 'E', 'F'], index=5)
-    q = st.sidebar.number_input('Tasa de emisión (q) [g/s]', value=166.7)
-    u = st.sidebar.slider('Velocidad del viento (u) [m/s]', 0.1, 20.0, 1.0)
-    h = st.sidebar.slider('Altura de la fuente (h) [m]', 0.0, 100.0, 5.0)
-    zr = st.sidebar.slider('Altura del receptor (zr) [m]', 0.0, 50.0, 0.1)
-    
+# ---------------------------------------------------------
+# MODELO 1: PLUMA GAUSSIANA ESTACIONARIA
+# ---------------------------------------------------------
+def ejecutar_modelo_1():
+    st.title("🌬️ Modelo 1: Pluma de Contaminantes")
+    st.sidebar.header("Parámetros Modelo 1")
+
+    clase_estabilidad = st.sidebar.selectbox(
+        'Clase de estabilidad de Pasquill (CL)',
+        ['A', 'B', 'C', 'D', 'E', 'F'], index=5, key="cl1"
+    )
+
+    q = st.sidebar.number_input('Tasa de emisión (q) [g/s]', value=166.7, key="q1")
+    u = st.sidebar.slider('Velocidad del viento (u) [m/s]', 0.1, 20.0, 1.0, key="u1")
+    h = st.sidebar.slider('Altura de la fuente (h) [m]', 0.0, 100.0, 5.0, key="h1")
+    zr = st.sidebar.slider('Altura del receptor (zr) [m]', 0.0, 50.0, 0.1, key="zr1")
+
     with st.sidebar.expander("Límites del Dominio"):
         lim = st.number_input('Límite horizontal [m]', value=14000.0)
         lim_y = st.number_input('Límite transversal [m]', value=2800.0)
-        lim_z = st.number_input('Límite vertical [m]', value=5000.0)
 
-    # --- LÓGICA DE CÁLCULO ---
-    params = {'A': (0.469, 0.903, 0.017, 1.380), 'B': (0.306, 0.885, 0.072, 1.021), 'C': (0.230, 0.855, 0.076, 0.879), 'D': (0.219, 0.764, 0.140, 0.727), 'E': (0.237, 0.691, 0.217, 0.610), 'F': (0.273, 0.594, 0.262, 0.500)}
+    # Lógica de cálculo
+    params = {
+        'A': (0.469, 0.903, 0.017, 1.380),
+        'B': (0.306, 0.885, 0.072, 1.021),
+        'C': (0.230, 0.855, 0.076, 0.879),
+        'D': (0.219, 0.764, 0.140, 0.727),
+        'E': (0.237, 0.691, 0.217, 0.610),
+        'F': (0.273, 0.594, 0.262, 0.500),
+    }
+
     ay, by, az, bz = params[clase_estabilidad]
-    
     x = np.linspace(0.1, lim, 200)
     y = np.linspace(-lim_y/2, lim_y/2, 150)
     X, Y = np.meshgrid(x, y)
-    
+
     sig_y = ay * X ** by
     sig_z = az * X ** bz
-    
-    # Concentraciones
+
     Conc = q / (2 * np.pi * u * (ay * x ** by) * (az * x ** bz)) * np.exp(-(zr - h) ** 2 / (2 * (az * x ** bz) ** 2))
     Conc_con = q / (2 * np.pi * u * sig_y * sig_z) * np.exp(-Y ** 2 / (2 * sig_y ** 2)) * np.exp(-(zr - h) ** 2 / (2 * sig_z ** 2))
-    
-    # --- VISUALIZACIÓN ---
+
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("Gráfico de Concentración Lineal")
+        st.subheader("Concentración Lineal")
         fig1, ax1 = plt.subplots()
         ax1.plot(x, Conc, color='red')
         ax1.set_xlabel('Distancia [m]')
         ax1.set_ylabel('Concentración [g/m³]')
         st.pyplot(fig1)
         st.metric("Concentración Máxima", f"{Conc.max():.2e} g/m³")
-    
+
     with col2:
-        st.subheader("Plano Horizontal (Vista Superior)")
-        fig2, ax2 = plt.subplots()
+        st.subheader("Vista Superior (XY)")
         cmap = mat_co.ListedColormap(['white', 'LightBlue', 'Deepskyblue', 'SpringGreen', 'yellow', 'orange', 'red'])
-        CS = ax2.contourf(X, Y, Conc_con, cmap=cmap)
-        plt.colorbar(CS)
-        ax2.set_xlabel('Distancia viento [m]')
-        ax2.set_ylabel('Distancia perpendicular [m]')
+        c_max = Conc.max() if Conc.max() > 0 else 1e-10
+        levels = np.logspace(np.log10(c_max*1e-5), np.log10(c_max), 7)
+        fig2, ax2 = plt.subplots()
+        norm = mat_co.BoundaryNorm(levels, cmap.N, clip=True)
+        CS = ax2.contourf(X, Y, Conc_con, levels=levels, cmap=cmap, norm=norm)
+        plt.colorbar(CS, label='g/m³')
         st.pyplot(fig2)
 
-import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.colors as mat_co
+# ---------------------------------------------------------
+# MODELO 2: DISPERSIÓN TEMPORAL
+# ---------------------------------------------------------
+def ejecutar_modelo_2():
+    st.title("⏱️ Modelo 2: Evolución Temporal")
+    st.sidebar.header("Parámetros Modelo 2")
 
-def nuevo_modelo():
-    st.title("Simulador de Dispersión - Modelo 2")
-    st.sidebar.header("Parámetros del Segundo Modelo")
-    
-    # Variables de control
-    CL = st.sidebar.selectbox('Estabilidad (CL)', ['A', 'B', 'C', 'D', 'E', 'F'], index=5)
-    u = st.sidebar.slider('Velocidad viento (u) [m/s]', 0.1, 20.0, 2.0)
-    q = st.sidebar.number_input('Emisión (q) [g/s]', value=100.0)
-    h = st.sidebar.slider('Altura de la fuente (h) [m]', 0, 100, 20)
-    
-    # Parámetros fijos
-    zr, yr = 0, 0
-    lim, lim_1 = 2000.0, 600.0
-    
-    # Lógica de estabilidad
-    if CL == 'A': f_e_y, K_x, K_y, K_z = 5, 50, 50, 50
-    elif CL == 'B': f_e_y, K_x, K_y, K_z = 2, 25, 25, 25
-    elif CL == 'C': f_e_y, K_x, K_y, K_z = 5, 12.5, 12.5, 12.5
-    elif CL == 'D': f_e_y, K_x, K_y, K_z = 10, 6.25, 6.25, 6.25
-    elif CL == 'E': f_e_y, K_x, K_y, K_z = 10, 3.125, 3.125, 3.125
-    else: f_e_y, K_x, K_y, K_z = 5, 1.5, 1.5, 1.5
+    CL2 = st.sidebar.selectbox('Estabilidad (CL)', ['A', 'B', 'C', 'D', 'E', 'F'], index=5, key="cl2")
+    q2 = st.sidebar.number_input('Emisión (q) [g/s]', value=100.0, key="q2")
+    u2 = st.sidebar.slider('Velocidad viento (u) [m/s]', 0.1, 20.0, 2.0, key="u2")
+    h2 = st.sidebar.slider('Altura fuente (h) [m]', 0, 100, 20, key="h2")
 
-    # Cálculos
-    t = np.arange(0.1, lim/u, lim/u/100)
-    def calc_c(dist_x, time):
-        den = 8 * (np.pi * time)**1.5 * np.sqrt(K_x * K_y * K_z)
-        return (q / den) * np.exp(-(dist_x - u*time)**2 / (4*K_x*time))
+    # Constantes de difusión según estabilidad
+    k_map = {
+        'A': 50, 'B': 25, 'C': 12.5, 'D': 6.25, 'E': 3.125, 'F': 1.5
+    }
+    K = k_map[CL2]
+    K_x = K_y = K_z = K
 
-    # Gráfico de tiempo
-    fig1, ax1 = plt.subplots()
-    ax1.plot(t, calc_c(250, t), label='250m')
-    ax1.plot(t, calc_c(1000, t), label='1000m')
-    ax1.set_xlabel("Tiempo (s)")
-    ax1.set_ylabel("Conc (g/m³)")
-    ax1.legend()
-    st.pyplot(fig1)
+    lim2 = 2000.0
+    t = np.linspace(0.1, lim2/u2, 200)
 
-# Esta línea es la que hace que la función se ejecute
-nuevo_modelo()
+    def calc_c(xr_val, tiempo):
+        Fd = q2 / (8 * (np.pi * tiempo)**(1.5) * (K_x * K_y * K_z)**(0.5))
+        return Fd * np.exp(-(xr_val - u2*tiempo)**2 / (4*K_x*tiempo))
+
+    st.subheader(f"Concentración en el tiempo (CE {CL2})")
+    fig3, ax3 = plt.subplots(figsize=(10, 5))
+    ax3.plot(t, calc_c(250, t), label='250 m')
+    ax3.plot(t, calc_c(500, t), label='500 m')
+    ax3.plot(t, calc_c(1000, t), label='1000 m')
+    ax3.set_xlabel("Tiempo desde la liberación [s]")
+    ax3.set_ylabel("Concentración [g/m³]")
+    ax3.legend()
+    st.pyplot(fig3)
+
+# ---------------------------------------------------------
+# LÓGICA DE EJECUCIÓN
+# ---------------------------------------------------------
+if modelo_seleccionado == "Modelo 1: Pluma Estacionaria":
+    ejecutar_modelo_1()
+else:
+    ejecutar_modelo_2()
