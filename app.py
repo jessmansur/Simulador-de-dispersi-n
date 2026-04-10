@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,15 +6,19 @@ import matplotlib.colors as mat_co
 # Configuración global
 st.set_page_config(page_title="Simulador de Dispersión", layout="wide")
 
-# Selector de Modelo en la barra lateral
+# Selector de Modelo en la barra lateral con los nuevos nombres
 st.sidebar.title("Navegación")
-modelo_seleccionado = st.sidebar.radio("Selecciona el modelo:", ["Modelo 1: Pluma Estacionaria", "Modelo 2: Dispersión Temporal"])
+modelo_seleccionado = st.sidebar.radio(
+    "Selecciona el modelo:", 
+    ["Modelo 1: Emisión continua", "Modelo 2: Emisión tipo puff"]
+)
 
 # ---------------------------------------------------------
-# MODELO 1: PLUMA GAUSSIANA ESTACIONARIA
+# MODELO 1: EMISIÓN CONTINUA (PLUMA)
 # ---------------------------------------------------------
 def ejecutar_modelo_1():
-    st.title("🌬️ Modelo 1: Pluma de Contaminantes")
+    # Título de pantalla coincidente
+    st.title("🌬️ Modelo 1: Emisión continua")
     st.sidebar.header("Parámetros Modelo 1")
 
     clase_estabilidad = st.sidebar.selectbox(
@@ -75,21 +78,19 @@ def ejecutar_modelo_1():
         st.pyplot(fig2)
 
 # ---------------------------------------------------------
-# MODELO 2: DISPERSIÓN TEMPORAL
+# MODELO 2: EMISIÓN TIPO PUFF
 # ---------------------------------------------------------
 def ejecutar_modelo_2():
-    st.title("⏱️ Modelo 2: Evolución Temporal")
+    # Título de pantalla coincidente
+    st.title("⏱️ Modelo 2: Emisión tipo puff")
     st.sidebar.header("Parámetros Modelo 2")
 
     CL2 = st.sidebar.selectbox('Estabilidad (CL)', ['A', 'B', 'C', 'D', 'E', 'F'], index=5, key="cl2")
-    q2 = st.sidebar.number_input('Emisión (q) [g/s]', value=100.0, key="q2")
+    q2 = st.sidebar.number_input('Masa liberada (q) [g]', value=100.0, key="q2")
     u2 = st.sidebar.slider('Velocidad viento (u) [m/s]', 0.1, 20.0, 2.0, key="u2")
     h2 = st.sidebar.slider('Altura fuente (h) [m]', 0, 100, 20, key="h2")
 
-    # Constantes de difusión según estabilidad
-    k_map = {
-        'A': 50, 'B': 25, 'C': 12.5, 'D': 6.25, 'E': 3.125, 'F': 1.5
-    }
+    k_map = {'A': 50, 'B': 25, 'C': 12.5, 'D': 6.25, 'E': 3.125, 'F': 1.5}
     K = k_map[CL2]
     K_x = K_y = K_z = K
 
@@ -111,9 +112,9 @@ def ejecutar_modelo_2():
     st.pyplot(fig3)
 
 # ---------------------------------------------------------
-# LÓGICA DE EJECUCIÓN
+# LÓGICA DE CONTROL
 # ---------------------------------------------------------
-if modelo_seleccionado == "Modelo 1: Pluma Estacionaria":
+if modelo_seleccionado == "Modelo 1: Emisión continua":
     ejecutar_modelo_1()
 else:
     ejecutar_modelo_2()
